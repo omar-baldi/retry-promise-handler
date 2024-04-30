@@ -6,17 +6,43 @@ export type Configuration<T = unknown> = {
   onErrorRetry?: (error: Error, retriesCount: number) => void;
 };
 
+type RequiredProperties<T, P extends Configuration<T>, Q extends (keyof P)[]> = {
+  [K in Q[number]]-?: Required<P[K]>;
+} & {
+  [K in keyof Omit<P, Q[number]>]: P[K];
+};
+
+type UpdatedConfiguration<T> = RequiredProperties<
+  T,
+  Configuration,
+  ["retries", "backOff", "backOffAmount"]
+>;
+
 export default class RetryPromiseHandler<T> {
-  _retriesMade = 0;
-  _configuration: Configuration<T>;
-  _promise: () => Promise<T>;
+  private _retriesMade = 0;
+  private _configuration: UpdatedConfiguration<T>;
+  private _promise: () => Promise<T>;
 
   constructor(promise: () => Promise<T>, configuration: Configuration<T>) {
     this._promise = promise;
-    this._configuration = configuration;
+    this._configuration = {
+      ...this._defaultConfigurationOptions,
+      ...configuration,
+    } as UpdatedConfiguration<T>;
   }
 
-  private _getRetriesLeft(): number {
+  private get _defaultConfigurationOptions(): Pick<
+    UpdatedConfiguration<T>,
+    "retries" | "backOff" | "backOffAmount"
+  > {
+    return {
+      retries: 5,
+      backOff: "LINEAR",
+      backOffAmount: 1000,
+    };
+  }
+
+  private get _getRetriesLeft(): number {
     const { retries } = this._configuration;
 
     return retries === "INFINITE"
@@ -35,7 +61,7 @@ export default class RetryPromiseHandler<T> {
           ._promise()
           .then(resolve)
           .catch((error) => {
-            const retriesAmountLeft = self._getRetriesLeft();
+            const retriesAmountLeft = self._getRetriesLeft;
             const hasReachedRetriesLimit = retriesAmountLeft <= 0;
 
             if (hasReachedRetriesLimit) {
@@ -53,3 +79,5 @@ export default class RetryPromiseHandler<T> {
     });
   }
 }
+
+// const r = new RetryPromiseHandler(() => Promise.resolve("Promise fulfilled"), {});
