@@ -3,7 +3,7 @@ export type Configuration<T = unknown> = {
   backOff?: "LINEAR" | "EXPONENTIAL"; //? is there anything more to add for backOff
   backOffAmount?: number;
   onSuccess?: (result: T) => void;
-  onErrorRetry?: (error: Error, retriesCount: number) => void;
+  onErrorRetry?: (error: Error) => void;
 };
 
 type RequiredProperties<T, P extends Configuration<T>, Q extends (keyof P)[]> = {
@@ -17,6 +17,10 @@ type UpdatedConfiguration<T> = RequiredProperties<
   Configuration,
   ["retries", "backOff", "backOffAmount"]
 >;
+
+export enum RejectRetryReason {
+  ALL_RETRIES_FAILED,
+}
 
 export default class RetryPromiseHandler<T> {
   private _retriesMade = 0;
@@ -52,7 +56,33 @@ export default class RetryPromiseHandler<T> {
       : 0;
   }
 
-  start() {
+  private _increaseRetriesMade(): void {
+    this._retriesMade += 1;
+  }
+
+  private _handleRetryPromiseFulfilled(response: T): void {
+    const { onSuccess } = this._configuration;
+
+    if (typeof onSuccess === "function") {
+      onSuccess(response);
+    }
+  }
+
+  private _handleRetryPromiseRejected(reason: RejectRetryReason): void {}
+
+  private _handleErrorRetryFail(error: Error): void {
+    const { onErrorRetry } = this._configuration;
+
+    if (typeof onErrorRetry === "function") {
+      onErrorRetry(error);
+    }
+  }
+
+  private _wait(delay: number): Promise<unknown> {
+    return new Promise((resolve) => setTimeout(resolve, delay));
+  }
+
+  private _recursivelyRetryPromise() {
     const self = this;
 
     return new Promise<T>((resolve, reject) => {
@@ -60,17 +90,22 @@ export default class RetryPromiseHandler<T> {
         self
           ._promise()
           .then(resolve)
-          .catch((error) => {
+          .catch((error: unknown) => {
             const retriesAmountLeft = self._getRetriesLeft;
             const hasReachedRetriesLimit = retriesAmountLeft <= 0;
 
             if (hasReachedRetriesLimit) {
-              //limit exceeded
-              reject(error);
+              reject(RejectRetryReason.ALL_RETRIES_FAILED);
             } else {
-              //handle error retry
-              //increase amount of retries made
-              //wait for delay before executing retry once again
+              const err =
+                error instanceof Error
+                  ? error
+                  : new Error("Retry failed: could not resolve promise");
+
+              self._handleErrorRetryFail(err);
+              self._increaseRetriesMade();
+              //TODO: to replace magic number with delay amount based on "backOff" and "backOffAmount"
+              self._wait(1000).then(execute);
             }
           });
       }
@@ -78,6 +113,10 @@ export default class RetryPromiseHandler<T> {
       execute();
     });
   }
-}
 
-// const r = new RetryPromiseHandler(() => Promise.resolve("Promise fulfilled"), {});
+  public start() {
+    this._recursivelyRetryPromise()
+      .then((response) => this._handleRetryPromiseFulfilled(response))
+      .catch((reason) => this._handleRetryPromiseRejected(reason));
+  }
+}
