@@ -1,4 +1,4 @@
-import { RejectRetryReason } from "../enums";
+import { RejectRetryReason, RetryStatus } from "../enums";
 import type { Configuration, UpdatedConfiguration } from "../types";
 
 export default class RetryPromiseHandler<T> {
@@ -6,6 +6,7 @@ export default class RetryPromiseHandler<T> {
   private _promise: () => Promise<T>;
 
   private _retriesMade = 0;
+  private _retryStatus = RetryStatus.IDLE;
   private _retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private _retryMsRemaining = 0;
   private _startingDateRetry: Date | null = null;
@@ -44,6 +45,10 @@ export default class RetryPromiseHandler<T> {
     return this._retriesMade;
   }
 
+  private get _getTimeRetryRemaining(): number {
+    return this._retryMsRemaining;
+  }
+
   private get _calculateBackOffDelay(): number {
     const { backOff, backOffAmount } = this._configuration;
     const retriesMade = this._getRetriesMade;
@@ -53,6 +58,29 @@ export default class RetryPromiseHandler<T> {
       : backOff == "LINEAR"
       ? backOffAmount * retriesMade
       : Math.pow(backOffAmount, retriesMade);
+  }
+
+  private get _calculateTimeRetryRemaining(): number {
+    const { backOffAmount } = this._configuration;
+
+    const now = new Date();
+    const start = this._startingDateRetry ?? new Date();
+    const elapsedTime = now.getTime() - start.getTime();
+    const remainingTime = backOffAmount - elapsedTime;
+
+    return Math.max(0, remainingTime);
+  }
+
+  public get isRetryPlaying(): boolean {
+    return this._retryStatus === RetryStatus.STARTED;
+  }
+
+  public get isRetryPaused(): boolean {
+    return this._retryStatus === RetryStatus.PAUSED;
+  }
+
+  public get isRetryStopped(): boolean {
+    return this._retryStatus === RetryStatus.STOPPED;
   }
 
   private _increaseRetriesMade(): void {
@@ -128,9 +156,30 @@ export default class RetryPromiseHandler<T> {
     });
   }
 
+  private _restoreState() {
+    this._retriesMade = 0;
+    this._retryStatus = RetryStatus.IDLE;
+    this._retryTimeout = null;
+    this._retryMsRemaining = 0;
+    this._startingDateRetry = null;
+    this._rejectRetryWait = null;
+  }
+
   public start() {
+    if (this._retryStatus === RetryStatus.STARTED) {
+      console.warn("Retry is already running");
+      return;
+    }
+
+    if (this._retryStatus === RetryStatus.STOPPED) {
+      this._restoreState();
+    }
+
+    this._retryStatus = RetryStatus.STARTED;
+
     this._recursivelyRetryPromise()
       .then((response) => this._handleRetryPromiseFulfilled(response))
-      .catch((reason) => this._handleRetryPromiseRejected(reason));
+      .catch((reason) => this._handleRetryPromiseRejected(reason))
+      .finally(() => (this._retryStatus = RetryStatus.STOPPED));
   }
 }
