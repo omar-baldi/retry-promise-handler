@@ -182,4 +182,40 @@ export default class RetryPromiseHandler<T> {
       .catch((reason) => this._handleRetryPromiseRejected(reason))
       .finally(() => (this._retryStatus = RetryStatus.STOPPED));
   }
+
+  //? when the retry shall be stopped, for which status ?
+  public stop() {
+    if (this._retryTimeout) {
+      clearTimeout(this._retryTimeout);
+    }
+
+    if (typeof this._rejectRetryWait === "function") {
+      this._rejectRetryWait(RejectRetryReason.RETRY_MANUALLY_STOPPED);
+    }
+  }
+
+  public resume() {
+    if (this._retryStatus !== RetryStatus.PAUSED) {
+      console.warn("Cannot resume retry logic");
+      return;
+    }
+
+    const msRemaining = this._getTimeRetryRemaining;
+    this._wait(msRemaining).then(() => this.start());
+  }
+
+  public pause() {
+    if (this._retryStatus !== RetryStatus.STARTED) {
+      console.warn("Cannot pause retry logic");
+      return;
+    }
+
+    this._retryStatus = RetryStatus.PAUSED;
+
+    if (this._retryTimeout) {
+      clearTimeout(this._retryTimeout);
+    }
+
+    this._retryMsRemaining = this._calculateTimeRetryRemaining;
+  }
 }
