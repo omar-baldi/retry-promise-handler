@@ -1,31 +1,15 @@
-export type Configuration<T = unknown> = {
-  retries?: number | "INFINITE";
-  backOff?: "LINEAR" | "EXPONENTIAL"; //? is there anything more to add for backOff
-  backOffAmount?: number;
-  onSuccess?: (result: T) => void;
-  onErrorRetry?: (error: Error) => void;
-};
-
-type RequiredProperties<T, P extends Configuration<T>, Q extends (keyof P)[]> = {
-  [K in Q[number]]-?: Required<P[K]>;
-} & {
-  [K in keyof Omit<P, Q[number]>]: P[K];
-};
-
-type UpdatedConfiguration<T> = RequiredProperties<
-  T,
-  Configuration,
-  ["retries", "backOff", "backOffAmount"]
->;
-
-export enum RejectRetryReason {
-  ALL_RETRIES_FAILED,
-}
+import { RejectRetryReason } from "../enums";
+import type { Configuration, UpdatedConfiguration } from "../types";
 
 export default class RetryPromiseHandler<T> {
-  private _retriesMade = 0;
   private _configuration: UpdatedConfiguration<T>;
   private _promise: () => Promise<T>;
+
+  private _retriesMade = 0;
+  private _retryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private _retryMsRemaining = 0;
+  private _startingDateRetry: Date | null = null;
+  private _rejectRetryWait: ((reason?: unknown) => void) | null = null;
 
   constructor(promise: () => Promise<T>, configuration: Configuration<T>) {
     this._promise = promise;
@@ -41,12 +25,12 @@ export default class RetryPromiseHandler<T> {
   > {
     return {
       retries: 5,
-      backOff: "LINEAR",
+      backOff: "FIXED",
       backOffAmount: 1000,
     };
   }
 
-  private get _getRetriesLeft(): number {
+  private get _calculateRetriesLeft(): number {
     const { retries } = this._configuration;
 
     return retries === "INFINITE"
@@ -54,6 +38,21 @@ export default class RetryPromiseHandler<T> {
       : typeof retries === "number"
       ? Math.max(0, retries - this._retriesMade)
       : 0;
+  }
+
+  private get _getRetriesMade(): number {
+    return this._retriesMade;
+  }
+
+  private get _calculateBackOffDelay(): number {
+    const { backOff, backOffAmount } = this._configuration;
+    const retriesMade = this._getRetriesMade;
+
+    return backOff === "FIXED"
+      ? backOffAmount
+      : backOff == "LINEAR"
+      ? backOffAmount * retriesMade
+      : Math.pow(backOffAmount, retriesMade);
   }
 
   private _increaseRetriesMade(): void {
@@ -68,7 +67,16 @@ export default class RetryPromiseHandler<T> {
     }
   }
 
-  private _handleRetryPromiseRejected(reason: RejectRetryReason): void {}
+  private _handleRetryPromiseRejected(reason: RejectRetryReason): void {
+    const { onRetryLimitExceeded } = this._configuration;
+
+    if (
+      reason === RejectRetryReason.ALL_RETRIES_FAILED &&
+      typeof onRetryLimitExceeded === "function"
+    ) {
+      onRetryLimitExceeded();
+    }
+  }
 
   private _handleErrorRetryFail(error: Error): void {
     const { onErrorRetry } = this._configuration;
@@ -79,7 +87,12 @@ export default class RetryPromiseHandler<T> {
   }
 
   private _wait(delay: number): Promise<unknown> {
-    return new Promise((resolve) => setTimeout(resolve, delay));
+    this._startingDateRetry = new Date();
+
+    return new Promise((resolve, reject) => {
+      this._rejectRetryWait = reject;
+      this._retryTimeout = setTimeout(resolve, delay);
+    });
   }
 
   private _recursivelyRetryPromise() {
@@ -91,7 +104,7 @@ export default class RetryPromiseHandler<T> {
           ._promise()
           .then(resolve)
           .catch((error: unknown) => {
-            const retriesAmountLeft = self._getRetriesLeft;
+            const retriesAmountLeft = self._calculateRetriesLeft;
             const hasReachedRetriesLimit = retriesAmountLeft <= 0;
 
             if (hasReachedRetriesLimit) {
@@ -104,8 +117,9 @@ export default class RetryPromiseHandler<T> {
 
               self._handleErrorRetryFail(err);
               self._increaseRetriesMade();
-              //TODO: to replace magic number with delay amount based on "backOff" and "backOffAmount"
-              self._wait(1000).then(execute);
+
+              const delayAmount = self._calculateBackOffDelay;
+              self._wait(delayAmount).then(execute).catch(reject);
             }
           });
       }
