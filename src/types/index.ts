@@ -1,20 +1,30 @@
-export type Configuration<T = unknown> = {
-  retries?: number | "INFINITE";
-  backOff?: "FIXED" | "LINEAR" | "EXPONENTIAL";
+export type CommonConfiguration<T> = {
   backOffAmount?: number;
   onSuccess?: (result: T) => void;
-  onErrorRetry?: (error: Error) => void;
+  onErrorRetry?: (error: unknown, retriesMade: number) => void;
   onRetryStopped?: () => void;
   onRetryLimitExceeded?: () => void;
-  /**
-   * Allows users to define a custom function that determines whether
-   * a retry attempt should be made based on the error encountered
-   * during the attempt.
-   * For example, users might want to retry only for specific error codes
-   * or error types, or based on certain properties of the error object.
-   */
-  shouldRetryOnError?: (error: Error) => boolean;
+  shouldRetryOnCondition?: (error: unknown) => boolean;
 };
+
+//TODO: to rename
+export type ToRenameBackOff = {
+  retries?: number | "INFINITE";
+  backOff?: "FIXED" | "LINEAR" | "EXPONENTIAL";
+};
+
+//TODO: to rename
+export type CustomArrayBackOff<T extends number = number> = {
+  retries?: T;
+  backOff?: readonly [number, ...number[]] & { length: T };
+};
+
+//TODO: to rename
+export type ConfigurationDefault<T> = ToRenameBackOff & CommonConfiguration<T>;
+//TODO: to rename
+export type ConfigurationArrayBackOff<T> = CustomArrayBackOff & CommonConfiguration<T>;
+
+export type Configuration<T> = ConfigurationDefault<T> | ConfigurationArrayBackOff<T>;
 
 type RequiredProperties<T, P extends Configuration<T>, Q extends (keyof P)[]> = {
   [K in Q[number]]-?: NonNullable<P[K]>;
@@ -24,7 +34,7 @@ type RequiredProperties<T, P extends Configuration<T>, Q extends (keyof P)[]> = 
 
 export type UpdatedConfiguration<T> = RequiredProperties<
   T,
-  Configuration,
+  Configuration<T>,
   ["retries", "backOff", "backOffAmount"]
 >;
 
