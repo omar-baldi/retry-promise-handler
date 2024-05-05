@@ -1,5 +1,6 @@
-export type CommonConfiguration<T> = {
-  backOffAmount?: number;
+import type { ArrayOfLength, RequiredProperties } from "./helpers";
+
+type CommonRetryConfig<T> = {
   onSuccess?: (result: T) => void;
   onErrorRetry?: (error: unknown, retriesMade: number) => void;
   onRetryStopped?: () => void;
@@ -7,35 +8,25 @@ export type CommonConfiguration<T> = {
   shouldRetryOnCondition?: (error: unknown) => boolean;
 };
 
-//TODO: to rename
-export type ToRenameBackOff = {
-  retries?: number | "INFINITE";
+export type DefaultBackOffConfiguration<T, R extends number = number> = {
+  retries?: R | "INFINITE";
   backOff?: "FIXED" | "LINEAR" | "EXPONENTIAL";
-};
+  backOffAmount?: number;
+} & CommonRetryConfig<T>;
 
-//TODO: to rename
-export type CustomArrayBackOff<T extends number = number> = {
-  retries?: T;
-  backOff?: readonly [number, ...number[]] & { length: T };
-};
+export type CustomBackOffConfiguration<T, R extends number> = {
+  backOff: "CUSTOM";
+  retries: R;
+  backOffAmount: ArrayOfLength<R, number>;
+} & CommonRetryConfig<T>;
 
-//TODO: to rename
-export type ConfigurationDefault<T> = ToRenameBackOff & CommonConfiguration<T>;
-//TODO: to rename
-export type ConfigurationArrayBackOff<T> = CustomArrayBackOff & CommonConfiguration<T>;
+export type Configuration<T, R extends number> =
+  | DefaultBackOffConfiguration<T>
+  | CustomBackOffConfiguration<T, R>;
 
-export type Configuration<T> = ConfigurationDefault<T> | ConfigurationArrayBackOff<T>;
-
-type RequiredProperties<T, P extends Configuration<T>, Q extends (keyof P)[]> = {
-  [K in Q[number]]-?: NonNullable<P[K]>;
-} & {
-  [K in keyof Omit<P, Q[number]>]: P[K];
-};
-
-export type UpdatedConfiguration<T> = RequiredProperties<
+export type ConfigurationWithRequiredProperties<T, R extends number> = RequiredProperties<
   T,
-  Configuration<T>,
+  R,
+  Configuration<T, R>,
   ["retries", "backOff", "backOffAmount"]
 >;
-
-export type PromiseReject<T> = Parameters<Promise<T>["catch"]>[0];
