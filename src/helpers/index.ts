@@ -1,8 +1,7 @@
-import type { Configuration, ConfigurationArrayBackOff } from "@/types";
+import type { Configuration, CustomBackOffConfiguration } from "@/types";
 
-//TODO: better function naming
-export function isConfigurationWithCustomBackOffArray<T>(
-  configuration: Configuration<T>
-): configuration is ConfigurationArrayBackOff<T> {
-  return Array.isArray(configuration.backOff);
+export function isCustomBackOffConfiguration<T, R extends number>(
+  config: Configuration<T, R>
+): config is CustomBackOffConfiguration<T, R> {
+  return config.backOff === "CUSTOM";
 }
