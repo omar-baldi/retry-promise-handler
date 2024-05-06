@@ -1,13 +1,51 @@
+import { RejectRetryReason, RetryStatus } from "@/enums";
 import { isCustomBackOffConfiguration } from "@/helpers";
-import type { PromiseReject } from "@/types/helpers";
-import { RejectRetryReason, RetryStatus } from "../enums";
 import type {
   Configuration,
   ConfigurationWithRequiredProperties,
   CustomBackOffConfiguration,
-} from "../types";
+} from "@/types";
+import type { PromiseReject } from "@/types/helpers";
 
-export default class RetryPromiseHandler<T, R extends number> {
+export class RetryError extends Error {
+  reason: string;
+  retriesMade: number;
+  retriesRemaining: number;
+  nativeError: Error;
+
+  constructor(
+    error: Error,
+    reason: string,
+    retriesMade: number,
+    retriesRemaining: number
+  ) {
+    super();
+    this.reason = reason;
+    this.retriesMade = retriesMade;
+    this.retriesRemaining = retriesRemaining;
+    this.nativeError = error;
+  }
+}
+
+export class AllRetriesFailedError extends RetryError {
+  constructor(error: Error, retriesMade: number, retriesRemaining: number) {
+    super(error, "All retries failed", retriesMade, retriesRemaining);
+  }
+}
+
+export class ExitConditionMetError extends RetryError {
+  constructor(error: Error, retriesMade: number, retriesRemaining: number) {
+    super(error, "Exit condition met error", retriesMade, retriesRemaining);
+  }
+}
+
+export class RetryManuallyStoppedError extends RetryError {
+  constructor(error: Error, retriesMade: number, retriesRemaining: number) {
+    super(error, "Retry logic manually stopped", retriesMade, retriesRemaining);
+  }
+}
+
+export class RetryPromiseHandler<T, R extends number> {
   private _configuration: ConfigurationWithRequiredProperties<T, R>;
   private _promise: () => Promise<T>;
 
@@ -40,7 +78,7 @@ export default class RetryPromiseHandler<T, R extends number> {
     >;
   }
 
-  public get getRetriesRemaining(): number {
+  public get retriesRemaining(): number {
     const { retries } = this._configuration;
 
     return retries === "INFINITE"
@@ -50,28 +88,28 @@ export default class RetryPromiseHandler<T, R extends number> {
       : 0;
   }
 
-  private get _getTimeRetryRemaining(): number {
+  private get _timeRetryRemaining(): number {
     return this._retryMsRemaining;
   }
 
   private _getCustomBackOffAmountBasedOnCurrentRetry(
     config: CustomBackOffConfiguration<T, R>
   ): number {
-    const i = this.getRetriesMade;
+    const i = this.retriesMade;
     const backOffAmount = (config.backOffAmount as number[])[i];
     return backOffAmount ?? 0;
   }
 
   //!NOTE: to test
   //!NOTE: to fix type mismatch (see type assertion used)
-  private get _getBackOffDelay(): number {
+  private get _backOffDelay(): number {
     const config = this._configuration as Configuration<T, R>;
 
     if (isCustomBackOffConfiguration(config)) {
       return this._getCustomBackOffAmountBasedOnCurrentRetry(config);
     } else {
       const { backOff, backOffAmount = 0 } = config;
-      const retriesMade = this.getRetriesMade;
+      const retriesMade = this.retriesMade;
 
       return backOff === "FIXED"
         ? backOffAmount
@@ -96,7 +134,7 @@ export default class RetryPromiseHandler<T, R extends number> {
     return Math.max(0, remainingTime);
   }
 
-  public get getRetriesMade(): number {
+  public get retriesMade(): number {
     return this._retriesMade;
   }
 
@@ -144,7 +182,7 @@ export default class RetryPromiseHandler<T, R extends number> {
 
   private _handleErrorRetryFail(error: unknown): void {
     const { onErrorRetry } = this._configuration;
-    const retriesMade = this.getRetriesMade;
+    const retriesMade = this.retriesMade;
 
     if (typeof onErrorRetry === "function") {
       onErrorRetry(error, retriesMade);
@@ -160,36 +198,67 @@ export default class RetryPromiseHandler<T, R extends number> {
     });
   }
 
+  /**
+   * TODO: to test whole retry logic with following promise (to test what happens when you throw an error)
+   * const run = async () => {
+    const response = await fetch('https://sindresorhus.com/unicorn');
+
+    // Abort retrying if the resource doesn't exist
+    if (response.status === 404) {
+      throw new AbortError(response.statusText);
+    }
+
+    return response.blob();
+  };
+   */
+
   private _recursivelyRetryPromise() {
     return new Promise<T>((resolve, reject) => {
       this._promise()
         .then(resolve)
         .catch((err: unknown) => {
+          const updatedError = err instanceof Error ? err : new Error("Error");
+
           const shouldRetryBasedOnCondition =
             typeof this._configuration.shouldRetryOnCondition === "function"
-              ? this._configuration.shouldRetryOnCondition(err)
+              ? this._configuration.shouldRetryOnCondition(updatedError)
               : true;
 
-          if (shouldRetryBasedOnCondition) {
-            reject(RejectRetryReason.EXIT_CONDITION_MET);
-            return;
+          if (!shouldRetryBasedOnCondition) {
+            throw new ExitConditionMetError(
+              updatedError,
+              this.retriesMade,
+              this.retriesRemaining
+            );
           }
 
-          const retriesAmountRemaining = this.getRetriesRemaining;
-          const hasReachedRetriesLimit = retriesAmountRemaining <= 0;
+          const hasReachedRetriesLimit = this.retriesRemaining <= 0;
 
           if (hasReachedRetriesLimit) {
-            reject(RejectRetryReason.ALL_RETRIES_FAILED);
-            return;
+            throw new AllRetriesFailedError(
+              updatedError,
+              this.retriesMade,
+              this.retriesRemaining
+            );
           }
 
-          const delayAmount = this._getBackOffDelay;
-          this._handleErrorRetryFail(err);
+          const delay = this._backOffDelay;
           this._increaseRetriesMade();
-          this._wait(delayAmount)
+          this._handleErrorRetryFail(updatedError);
+          this._wait(delay)
             .then(() => this._recursivelyRetryPromise())
-            .catch(reject);
-        });
+            .catch(() => {
+              throw new RetryManuallyStoppedError(
+                updatedError,
+                this.retriesMade,
+                this.retriesRemaining
+              );
+            });
+        })
+        /**
+         * !NOTE: to handle now different cases based on custom errors
+         */
+        .catch(reject);
     });
   }
 
@@ -229,7 +298,8 @@ export default class RetryPromiseHandler<T, R extends number> {
     }
 
     if (typeof this._rejectRetryWait === "function") {
-      this._rejectRetryWait(RejectRetryReason.RETRY_MANUALLY_STOPPED);
+      //!NOTE: to refactor this ???
+      this._rejectRetryWait("Retry manually stopped");
     }
   }
 
@@ -239,7 +309,7 @@ export default class RetryPromiseHandler<T, R extends number> {
       return;
     }
 
-    const msRemaining = this._getTimeRetryRemaining;
+    const msRemaining = this._timeRetryRemaining;
     this._wait(msRemaining).then(() => this.start());
   }
 
