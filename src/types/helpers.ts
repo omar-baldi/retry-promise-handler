@@ -13,8 +13,6 @@ export type RequiredProperties<
 
 export type PromiseReject<T> = Parameters<Promise<T>["catch"]>[0];
 
-export type ArrayOfLength<
-  L extends number,
-  T extends unknown,
-  K extends T[] = []
-> = K["length"] extends L ? K : ArrayOfLength<L, T, [T, ...K]>;
+export type ArrayOfLength<L extends number, T, K extends T[] = []> = K["length"] extends L
+  ? K
+  : ArrayOfLength<L, T, [T, ...K]>;
