@@ -1,11 +1,21 @@
+import {
+  AllRetriesFailedError,
+  ExitConditionMetError,
+  RetryError,
+  RetryManuallyStoppedError,
+} from "@/lib/retry-promise-handler";
 import type { ArrayOfLength, RequiredProperties } from "./helpers";
+
+export type FinalError =
+  | AllRetriesFailedError
+  | ExitConditionMetError
+  | RetryManuallyStoppedError;
 
 type CommonRetryConfig<T> = {
   onSuccess?: (result: T) => void;
-  onErrorRetry?: (error: unknown, retriesMade: number) => void;
-  onRetryStopped?: () => void;
-  onRetryLimitExceeded?: () => void;
-  shouldRetryOnCondition?: (error: unknown) => boolean;
+  onFailedRetry?: (error: RetryError) => void;
+  onFailedRetryProcess?: (error: FinalError) => void;
+  shouldRetryOnCondition?: (error: RetryError) => boolean;
 };
 
 export type DefaultBackOffConfiguration<T, R extends number = number> = {
