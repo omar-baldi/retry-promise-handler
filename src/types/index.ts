@@ -3,8 +3,10 @@ import {
   ExitConditionMetError,
   RetryError,
   RetryManuallyStoppedError,
-} from "@/lib/retry-promise-handler";
+} from "@/lib";
 import type { ArrayOfLength, RequiredProperties } from "./helpers";
+
+export type RetryStatus = "IDLE" | "STARTED" | "STOPPED";
 
 export type FinalError =
   | AllRetriesFailedError
