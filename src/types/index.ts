@@ -27,8 +27,8 @@ export type DefaultBackOffConfiguration<T, R extends number = number> = {
 } & CommonRetryConfig<T>;
 
 export type CustomBackOffConfiguration<T, R extends number> = {
-  backOff: "CUSTOM";
   retries: R;
+  backOff: "CUSTOM";
   backOffAmount: ArrayOfLength<R, number>;
 } & CommonRetryConfig<T>;
 
