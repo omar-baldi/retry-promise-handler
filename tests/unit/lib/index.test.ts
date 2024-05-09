@@ -15,7 +15,7 @@ describe("Retry promise handler", () => {
     vi.clearAllTimers();
   });
 
-  describe.skip("Promise fulfilled", () => {
+  describe("Promise fulfilled", () => {
     const onSuccessMockFn = vi.fn();
     let retryPromiseHandler: RetryPromiseHandler<string, number>;
 
@@ -47,7 +47,7 @@ describe("Retry promise handler", () => {
     });
   });
 
-  it.skip("should invoke error retry callback function with correct error payload", async () => {
+  it("should invoke error retry callback function with correct error payload", async () => {
     const mockFailedRetry = vi.fn();
     const mockPromise = () => Promise.reject<string>("Promise rejected");
     const retryPromiseHandler = new RetryPromiseHandler(mockPromise, {
@@ -71,7 +71,7 @@ describe("Retry promise handler", () => {
     );
   });
 
-  it.skip("all retries failed", async () => {
+  it("all retries failed", async () => {
     const mockFailedRetryProcess = vi.fn();
     const mockPromise = () => Promise.reject<string>("Promise rejected");
     const retryPromiseHandler = new RetryPromiseHandler(mockPromise, {
@@ -101,7 +101,7 @@ describe("Retry promise handler", () => {
     );
   });
 
-  it.skip("retry process manually stopped", async () => {
+  it("retry process manually stopped", async () => {
     const mockFailedRetryProcess = vi.fn();
     const mockPromise = () => Promise.reject<string>("Promise rejected");
     const retryPromiseHandler = new RetryPromiseHandler(mockPromise, {
@@ -127,6 +127,16 @@ describe("Retry promise handler", () => {
         retriesRemaining: 2,
       })
     );
+  });
+
+  describe.skip("Retry process with custom backOff properties", () => {
+    describe("When providing 'LINEAR' backOff property", () => {});
+
+    describe("When providing 'FIXED' backOff property", () => {});
+
+    describe("When providing 'EXPONENTIAL' backOff property", () => {});
+
+    describe("When providing 'CUSTOM' backOff property", () => {});
   });
 
   // describe("Promise rejected", () => {
