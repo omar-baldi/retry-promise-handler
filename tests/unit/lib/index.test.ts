@@ -1,4 +1,9 @@
-import { AllRetriesFailedError, RetryError, RetryPromiseHandler } from "@/lib";
+import {
+  AllRetriesFailedError,
+  RetryError,
+  RetryManuallyStoppedError,
+  RetryPromiseHandler,
+} from "@/lib";
 import { flushPromises } from "tests/_helpers/promise";
 import { vi } from "vitest";
 
@@ -92,6 +97,34 @@ describe("Retry promise handler", () => {
         reason: "All retries failed",
         retriesMade: 3,
         retriesRemaining: 0,
+      })
+    );
+  });
+
+  it.skip("retry process manually stopped", async () => {
+    const mockFailedRetryProcess = vi.fn();
+    const mockPromise = () => Promise.reject<string>("Promise rejected");
+    const retryPromiseHandler = new RetryPromiseHandler(mockPromise, {
+      retries: 3,
+      backOffAmount: 500,
+      onFailedRetryProcess: mockFailedRetryProcess,
+    });
+
+    retryPromiseHandler.start();
+    await flushPromises();
+
+    retryPromiseHandler.stop();
+    await flushPromises();
+
+    expect(mockFailedRetryProcess).toHaveBeenCalled();
+    const [[expectedError]] = mockFailedRetryProcess.mock.calls;
+    expect(expectedError).toBeInstanceOf(RetryManuallyStoppedError);
+    expect(expectedError).toEqual(
+      expect.objectContaining({
+        nativeError: expect.any(Error),
+        reason: "Retry process manually stopped",
+        retriesMade: 1,
+        retriesRemaining: 2,
       })
     );
   });
