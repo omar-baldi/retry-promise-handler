@@ -162,4 +162,29 @@ describe("Retry promise handler", () => {
       })
     );
   });
+
+  it("FIXED backOff property", async () => {
+    const mockFailedRetry = vi.fn();
+    const mockPromise = () => Promise.reject("Promise rejected");
+    const retryPromiseHandler = new RetryPromiseHandler(mockPromise, {
+      retries: 4,
+      backOff: "FIXED",
+      backOffAmount: 500,
+      onFailedRetry: mockFailedRetry,
+    });
+
+    retryPromiseHandler.start();
+
+    await flushPromises();
+    expect(mockFailedRetry).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mockFailedRetry).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mockFailedRetry).toHaveBeenCalledTimes(3);
+
+    await vi.advanceTimersByTimeAsync(500);
+    expect(mockFailedRetry).toHaveBeenCalledTimes(4);
+  });
 });
