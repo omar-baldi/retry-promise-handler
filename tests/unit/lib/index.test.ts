@@ -212,4 +212,29 @@ describe("Retry promise handler", () => {
     await vi.advanceTimersByTimeAsync(1500);
     expect(mockFailedRetry).toHaveBeenCalledTimes(4);
   });
+
+  it("EXPONENTIAL backOff property", async () => {
+    const mockFailedRetry = vi.fn();
+    const mockPromise = () => Promise.reject("Promise rejected");
+    const retryPromiseHandler = new RetryPromiseHandler(mockPromise, {
+      retries: 4,
+      backOff: "EXPONENTIAL",
+      backOffAmount: 10,
+      onFailedRetry: mockFailedRetry,
+    });
+
+    retryPromiseHandler.start();
+
+    await flushPromises();
+    expect(mockFailedRetry).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(10);
+    expect(mockFailedRetry).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(mockFailedRetry).toHaveBeenCalledTimes(3);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(mockFailedRetry).toHaveBeenCalledTimes(4);
+  });
 });
