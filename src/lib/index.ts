@@ -1,8 +1,12 @@
+import {
+  RETRY_PROCESS_EXIT_CONDITION_MET_REASON,
+  RETRY_PROCESS_FAILED_REASON,
+  RETRY_PROCESS_MANUALLY_STOPPED_REASON,
+} from "@/constants";
 import { isCustomBackOffConfiguration } from "@/helpers/config";
 import type {
   Configuration,
   ConfigurationWithRequiredProperties,
-  CustomBackOffConfiguration,
   FinalError,
   RetryStatus,
 } from "@/types";
@@ -30,19 +34,19 @@ export class RetryError extends Error {
 
 export class AllRetriesFailedError extends RetryError {
   constructor(error: Error, retriesMade: number, retriesRemaining: number) {
-    super(error, "All retries failed", retriesMade, retriesRemaining);
+    super(error, RETRY_PROCESS_FAILED_REASON, retriesMade, retriesRemaining);
   }
 }
 
 export class ExitConditionMetError extends RetryError {
   constructor(error: Error, retriesMade: number, retriesRemaining: number) {
-    super(error, "Exit condition met", retriesMade, retriesRemaining);
+    super(error, RETRY_PROCESS_EXIT_CONDITION_MET_REASON, retriesMade, retriesRemaining);
   }
 }
 
 export class RetryManuallyStoppedError extends RetryError {
   constructor(error: Error, retriesMade: number, retriesRemaining: number) {
-    super(error, "Retry process manually stopped", retriesMade, retriesRemaining);
+    super(error, RETRY_PROCESS_MANUALLY_STOPPED_REASON, retriesMade, retriesRemaining);
   }
 }
 
@@ -91,31 +95,25 @@ export class RetryPromiseHandler<T, R extends number> {
     return this._retriesMade;
   }
 
-  private _getCustomBackOffAmountBasedOnCurrentRetry(
-    config: CustomBackOffConfiguration<T, R>
-  ): number {
-    const i = this.retriesMade;
-    const backOffAmount = (config.backOffAmount as number[])[i];
-    return backOffAmount ?? 0;
-  }
-
   //!NOTE: to test
   //!NOTE: to fix type mismatch (see type assertion used)
   private get _backOffDelay(): number {
     const config = this._configuration as Configuration<T, R>;
 
     if (isCustomBackOffConfiguration(config)) {
-      return this._getCustomBackOffAmountBasedOnCurrentRetry(config);
-    } else {
-      const { backOff, backOffAmount = 0 } = config;
-      const retriesMade = this.retriesMade;
-
-      return backOff === "FIXED"
-        ? backOffAmount
-        : backOff == "LINEAR"
-        ? backOffAmount * retriesMade
-        : Math.pow(backOffAmount, retriesMade);
+      const i = this.retriesMade;
+      const backOffAmount = (config.backOffAmount as number[])[i];
+      return backOffAmount ?? 0;
     }
+
+    const { backOff, backOffAmount = 0 } = config;
+    const retriesMade = this.retriesMade;
+
+    return backOff === "FIXED"
+      ? backOffAmount
+      : backOff == "LINEAR"
+      ? backOffAmount * retriesMade
+      : Math.pow(backOffAmount, retriesMade);
   }
 
   public get hasRetryProcessStarted(): boolean {
@@ -176,7 +174,7 @@ export class RetryPromiseHandler<T, R extends number> {
       : true;
   }
 
-  private async _recursivelyRetryPromise() {
+  private async _retryPromise() {
     let lastKnownError!: Error;
 
     while (this.retriesRemaining > 0) {
@@ -184,7 +182,10 @@ export class RetryPromiseHandler<T, R extends number> {
         const data = await this._promise();
         return data;
       } catch (err: unknown) {
-        lastKnownError = err instanceof Error ? err : new Error("Retry failed");
+        this._increaseRetriesMade();
+
+        lastKnownError =
+          err instanceof Error ? err : new Error("Unable to resolve promise");
 
         const retryError = new RetryError(
           lastKnownError,
@@ -203,9 +204,9 @@ export class RetryPromiseHandler<T, R extends number> {
           );
         }
 
-        const delay = this._backOffDelay;
-        this._increaseRetriesMade();
         this._handleErrorRetryFail(retryError);
+
+        const delay = this._backOffDelay;
         await this._wait(delay).catch(() => {
           throw new RetryManuallyStoppedError(
             lastKnownError,
@@ -240,7 +241,7 @@ export class RetryPromiseHandler<T, R extends number> {
 
     this._updateRetryStatus = "STARTED";
 
-    this._recursivelyRetryPromise()
+    this._retryPromise()
       .then((response) => this._handleRetryPromiseFulfilled(response))
       .catch((finalError) => this._handleRetryPromiseRejected(finalError))
       .finally(() => (this._updateRetryStatus = "STOPPED"));
