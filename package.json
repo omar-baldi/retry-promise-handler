@@ -1,16 +1,29 @@
 {
-  "name": "react-retry-promise",
+  "name": "retry-promise-handler",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "type": "module",
+  "license": "MIT",
+  "description": "A package for retrying promises with various strategies.",
+  "author": "Omar Baldi",
+  "repository": "https://github.com/omar-baldi/retry-promise-handler",
+  "bugs": "https://github.com/omar-baldi/retry-promise-handler/issues",
+  "keywords": [
+    "promise",
+    "retry",
+    "retries",
+    "typescript",
+    "backoff",
+    "failed"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE.txt"
+  ],
   "scripts": {
-    "start": "ts-node lib/retry-promise-handler.ts",
-    "test": "vitest --run"
+    "cleanup": "rm -rf node_modules",
+    "build": "tsc",
+    "test": "vitest run"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.8",

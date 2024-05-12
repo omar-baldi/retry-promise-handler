@@ -20,7 +20,7 @@ type CommonRetryConfig<T> = {
   shouldRetryOnCondition?: (error: RetryError) => boolean;
 };
 
-export type DefaultBackOffConfiguration<T, R extends number = number> = {
+export type DefaultBackOffConfiguration<T, R extends number> = {
   retries?: R | "INFINITE";
   backOff?: "FIXED" | "LINEAR" | "EXPONENTIAL";
   backOffAmount?: number;
@@ -33,7 +33,7 @@ export type CustomBackOffConfiguration<T, R extends number> = {
 } & CommonRetryConfig<T>;
 
 export type Configuration<T, R extends number> =
-  | DefaultBackOffConfiguration<T>
+  | DefaultBackOffConfiguration<T, R>
   | CustomBackOffConfiguration<T, R>;
 
 export type ConfigurationWithRequiredProperties<T, R extends number> = RequiredProperties<
