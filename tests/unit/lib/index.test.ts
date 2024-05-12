@@ -16,6 +16,10 @@ describe("Retry promise handler", () => {
     vi.clearAllTimers();
   });
 
+  it("fail", () => {
+    expect(true).toBe(false);
+  });
+
   describe("Promise fulfilled", () => {
     const onSuccessMockFn = vi.fn();
     let retryPromiseHandler: RetryPromiseHandler<string, number>;
