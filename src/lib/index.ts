@@ -1,4 +1,7 @@
 import {
+  DEFAULT_BACKOFF,
+  DEFAULT_BACKOFF_MS_AMOUNT,
+  DEFAULT_RETRIES_AMOUNT,
   RETRY_PROCESS_EXIT_CONDITION_MET_REASON,
   RETRY_PROCESS_FAILED_REASON,
   RETRY_PROCESS_MANUALLY_STOPPED_REASON,
@@ -71,9 +74,9 @@ export class RetryPromiseHandler<T, R extends number> {
     "backOff" | "retries" | "backOffAmount"
   > {
     return {
-      backOff: "FIXED",
-      retries: 5,
-      backOffAmount: 1000,
+      backOff: DEFAULT_BACKOFF,
+      retries: DEFAULT_RETRIES_AMOUNT,
+      backOffAmount: DEFAULT_BACKOFF_MS_AMOUNT,
     } as Pick<
       ConfigurationWithRequiredProperties<T, R>,
       "backOff" | "retries" | "backOffAmount"
