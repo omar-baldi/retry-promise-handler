@@ -1,6 +1,9 @@
 name: Run tests
 
 on:
+  push:
+    branches: ["main"]
+
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: ["main"]
@@ -13,11 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Select nodejs from .nvmrc
+      - name: Set node
         uses: actions/setup-node@v3
         with:
-          node-version-file: ".nvmrc"
-          cache: "npm"
+          node-version-file: lts/*
 
       - name: Install dependencies
         run: npm ci
