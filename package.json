@@ -1,11 +1,14 @@
 {
   "name": "retry-promise-handler",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "license": "MIT",
   "description": "A package for retrying promises with various strategies.",
   "author": "Omar Baldi",
   "repository": "https://github.com/omar-baldi/retry-promise-handler",
   "bugs": "https://github.com/omar-baldi/retry-promise-handler/issues",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "keywords": [
     "promise",
     "retry",
@@ -20,14 +23,18 @@
     "LICENSE.txt"
   ],
   "scripts": {
-    "cleanup": "rm -rf node_modules",
-    "build": "tsc",
-    "test": "vitest run"
+    "clean": "rm -rf node_modules",
+    "build": "tsup",
+    "lint": "tsc",
+    "test": "vitest run",
+    "ci": "npm run lint && npm run test && npm run build",
+    "release": "npm run ci && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.27.1",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.8",
-    "ts-node": "^10.9.2",
+    "tsup": "^8.0.2",
     "typescript": "^5.4.5",
     "vitest": "^1.5.3"
   }
