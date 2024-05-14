@@ -19,9 +19,6 @@
     "noImplicitAny": true,
     "noFallthroughCasesInSwitch": true
   },
-  "ts-node": {
-    "esm": true
-  },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"]
 }
