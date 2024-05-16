@@ -11,28 +11,46 @@ import {
 
 describe("Errors", () => {
   const nativeError = new Error("Error");
+  const testCases = [
+    {
+      error: new AllRetriesFailedError(nativeError, 3, 0),
+      checks: {
+        isAllRetriesFailedError: true,
+        isExitConditionError: false,
+        isRetryManuallyStoppedError: false,
+      },
+    },
+    {
+      error: new ExitConditionMetError(nativeError, 3, 0),
+      checks: {
+        isAllRetriesFailedError: false,
+        isExitConditionError: true,
+        isRetryManuallyStoppedError: false,
+      },
+    },
+    {
+      error: new RetryManuallyStoppedError(nativeError, 3, 0),
+      checks: {
+        isAllRetriesFailedError: false,
+        isExitConditionError: false,
+        isRetryManuallyStoppedError: true,
+      },
+    },
+  ];
 
-  it.each([
-    [new AllRetriesFailedError(nativeError, 3, 0), true],
-    [new ExitConditionMetError(nativeError, 3, 0), false],
-    [new RetryManuallyStoppedError(nativeError, 3, 0), false],
-  ])("isErrorAllRetriesFailedError", (error, isAllRetriesFailedError) => {
-    expect(isErrorAllRetriesFailedError(error)).toBe(isAllRetriesFailedError);
-  });
+  describe.each(testCases)("Error type check", ({ error, checks }) => {
+    it("should identify 'AllRetriesFailedError' correctly", () => {
+      expect(isErrorAllRetriesFailedError(error)).toBe(checks.isAllRetriesFailedError);
+    });
 
-  it.each([
-    [new AllRetriesFailedError(nativeError, 3, 0), false],
-    [new ExitConditionMetError(nativeError, 3, 0), true],
-    [new RetryManuallyStoppedError(nativeError, 3, 0), false],
-  ])("isErrorExitConditionMetError", (error, isErrorExitCondition) => {
-    expect(isErrorExitConditionMetError(error)).toBe(isErrorExitCondition);
-  });
+    it("should identify 'ExitConditionMetError' correctly", () => {
+      expect(isErrorExitConditionMetError(error)).toBe(checks.isExitConditionError);
+    });
 
-  it.each([
-    [new AllRetriesFailedError(nativeError, 3, 0), false],
-    [new ExitConditionMetError(nativeError, 3, 0), false],
-    [new RetryManuallyStoppedError(nativeError, 3, 0), true],
-  ])("isErrorRetryManuallyStoppedError", (error, isErrorRetryManuallyStopped) => {
-    expect(isErrorRetryManuallyStoppedError(error)).toBe(isErrorRetryManuallyStopped);
+    it("should identify 'RetryManuallyStoppedError' correctly", () => {
+      expect(isErrorRetryManuallyStoppedError(error)).toBe(
+        checks.isRetryManuallyStoppedError
+      );
+    });
   });
 });
