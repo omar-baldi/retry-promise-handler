@@ -14,6 +14,7 @@ import type {
   RetryStatus,
 } from "@/types";
 import type { PromiseReject } from "@/types/helpers";
+export * from "@/helpers/errors";
 
 export class RetryError extends Error {
   reason: string;
@@ -83,7 +84,6 @@ export class RetryPromiseHandler<T, R extends number> {
     >;
   }
 
-  //!NOTE: to refactor (no need for a fallback as the retries have already been set to default retries amount (5) in the constructor block)
   public get retriesRemaining(): number {
     const { retries } = this._configuration;
 
@@ -98,8 +98,6 @@ export class RetryPromiseHandler<T, R extends number> {
     return this._retriesMade;
   }
 
-  //!NOTE: to test
-  //!NOTE: to fix type mismatch (see type assertion used)
   private get _backOffDelay(): number {
     const config = this._configuration as Configuration<T, R>;
 
