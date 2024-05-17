@@ -84,23 +84,19 @@ export class RetryPromiseHandler<T, R extends number> {
     >;
   }
 
-  //!NOTE: to refactor (no need for a fallback as the retries have already been set to default retries amount (5) in the constructor block)
   public get retriesRemaining(): number {
     const { retries } = this._configuration;
+    const retriesMade = this.retriesMade;
 
     return retries === "INFINITE"
       ? Number.MAX_SAFE_INTEGER
-      : typeof retries === "number"
-      ? Math.max(0, retries - this._retriesMade)
-      : 0;
+      : Math.max(0, retries - retriesMade);
   }
 
   public get retriesMade(): number {
     return this._retriesMade;
   }
 
-  //!NOTE: to test
-  //!NOTE: to fix type mismatch (see type assertion used)
   private get _backOffDelay(): number {
     const config = this._configuration as Configuration<T, R>;
 
@@ -258,7 +254,7 @@ export class RetryPromiseHandler<T, R extends number> {
     }
 
     if (typeof this._interruptRetryFn === "function") {
-      this._interruptRetryFn?.("Retry manually stopped");
+      this._interruptRetryFn("Retry manually stopped");
     }
   }
 }
