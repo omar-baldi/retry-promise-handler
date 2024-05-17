@@ -85,14 +85,6 @@ export type CustomBackOffConfiguration<T, R extends number> = {
 - **_backOffAmount_**: Requires an array of length R containing custom backoff times. Each element in the array represents the amount of time to wait before retrying.
 - **_onSuccess_**, **_onFailedRetry_**, **_onFailedRetryProcess_**, **_shouldRetryOnCondition_**: Optional callbacks, same as in the default configuration.
 
-## Error handling helpers
-
-The package offers utility functions to identify custom errors, facilitating the distinction of error scenarios when the retry process fails:
-
-- **_isErrorAllRetriesFailedError_**
-- **_isErrorExitConditionMetError_**
-- **_isErrorRetryManuallyStoppedError_**
-
 ## Contributing
 
 Whether you want to report a bug, request a feature or submit a pull request, your contribution is **greatly appreciated**.
